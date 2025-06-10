@@ -24,7 +24,7 @@ const PRIORITY_LABELS = {
   high: 'Високий'
 };
 
-const Tasks: React.FC = () => {
+export const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -258,7 +258,7 @@ const Tasks: React.FC = () => {
               <Form.Label>Пріоритет</Form.Label>
               <Form.Select
                 value={newTask.priority}
-                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as Task['priority'] })}
+                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as 'low' | 'medium' | 'high' })}
               >
                 {PRIORITIES.map(priority => (
                   <option key={priority} value={priority}>
@@ -270,15 +270,14 @@ const Tasks: React.FC = () => {
             <Form.Group className="mb-3">
               <Form.Label>Термін виконання</Form.Label>
               <Form.Control
-                type="datetime-local"
+                type="date"
                 value={newTask.dueDate || ''}
                 onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
               />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Check
-                type="switch"
-                id="recurring"
+                type="checkbox"
                 label="Повторюване завдання"
                 checked={newTask.recurring}
                 onChange={(e) => setNewTask({ ...newTask, recurring: e.target.checked })}
@@ -289,7 +288,7 @@ const Tasks: React.FC = () => {
                 <Form.Label>Інтервал повторення</Form.Label>
                 <Form.Select
                   value={newTask.recurringInterval}
-                  onChange={(e) => setNewTask({ ...newTask, recurringInterval: e.target.value as Task['recurringInterval'] })}
+                  onChange={(e) => setNewTask({ ...newTask, recurringInterval: e.target.value as 'daily' | 'weekly' | 'monthly' })}
                 >
                   <option value="daily">Щодня</option>
                   <option value="weekly">Щотижня</option>
@@ -298,39 +297,24 @@ const Tasks: React.FC = () => {
               </Form.Group>
             )}
             <Form.Group className="mb-3">
-              <Form.Label>Призначити</Form.Label>
-              <Form.Control
-                type="text"
-                value={newTask.assignedTo || ''}
-                onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                placeholder="Ім'я члена сім'ї"
+              <Form.Check
+                type="checkbox"
+                label="Нагадування"
+                checked={!!newTask.reminder}
+                onChange={(e) => setNewTask({ ...newTask, reminder: e.target.checked ? '1h' : undefined })}
               />
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Нагадування</Form.Label>
-              <Form.Control
-                type="datetime-local"
-                value={newTask.reminder || ''}
-                onChange={(e) => setNewTask({ ...newTask, reminder: e.target.value })}
-              />
-            </Form.Group>
+            <div className="d-flex justify-content-end gap-2">
+              <Button variant="secondary" onClick={() => setShowModal(false)}>
+                Скасувати
+              </Button>
+              <Button variant="primary" type="submit">
+                {editingTask ? 'Зберегти' : 'Створити'}
+              </Button>
+            </div>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => {
-            setShowModal(false);
-            setEditingTask(null);
-            setNewTask({ priority: 'medium', category: 'Дім', recurring: false });
-          }}>
-            Скасувати
-          </Button>
-          <Button variant="primary" onClick={handleSubmit}>
-            {editingTask ? 'Зберегти' : 'Створити'}
-          </Button>
-        </Modal.Footer>
       </Modal>
     </div>
   );
-};
-
-export default Tasks; 
+}; 

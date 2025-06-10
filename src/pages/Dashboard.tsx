@@ -58,7 +58,7 @@ interface WeatherData {
   }>;
 }
 
-const Dashboard: React.FC = () => {
+export const Dashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -338,6 +338,4 @@ const Dashboard: React.FC = () => {
       </Container>
     </div>
   );
-};
-
-export default Dashboard; 
+}; 

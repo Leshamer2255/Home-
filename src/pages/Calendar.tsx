@@ -35,7 +35,7 @@ const FAMILY_MEMBERS: FamilyMember[] = [
   { id: '4', name: 'Донька', color: '#ffc107' }
 ];
 
-const Calendar = () => {
+export const Calendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -333,6 +333,4 @@ const Calendar = () => {
       </Modal>
     </div>
   );
-};
-
-export default Calendar; 
+}; 
