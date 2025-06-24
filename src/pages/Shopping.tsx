@@ -1,13 +1,19 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import { Button, Card, Form, Modal, ListGroup, Badge, Table } from 'react-bootstrap';
 import * as FaIcons from 'react-icons/fa';
+import BarcodeScanner from '../components/BarcodeScanner';
+
+interface StorePrice {
+  store: string;
+  price: number;
+}
 
 interface ShoppingItem {
   id: string;
   name: string;
   category: string;
   quantity: number;
-  price: number;
+  prices: StorePrice[];
   completed: boolean;
   list: string;
   purchaseDate?: string;
@@ -20,19 +26,31 @@ interface ShoppingList {
   totalSpent: number;
 }
 
+interface ShoppingTemplate {
+  id: string;
+  name: string;
+  items: Omit<ShoppingItem, 'id' | 'completed' | 'purchaseDate'>[];
+}
+
 const CATEGORIES = ['Продукти', 'Побутова хімія', 'Електроніка', 'Одяг', 'Інше'];
 const LISTS = ['Щоденні покупки', 'Тижневий запас', 'Спеціальні покупки'];
 
 const Shopping: React.FC = () => {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [templates, setTemplates] = useState<ShoppingTemplate[]>(() => {
+    const saved = localStorage.getItem('shoppingTemplates');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showModal, setShowModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingItem | null>(null);
   const [newItem, setNewItem] = useState<Partial<ShoppingItem>>({
     category: 'Продукти',
     quantity: 1,
-    price: 0,
+    prices: [{ store: '', price: 0 }],
     list: LISTS[0]
   });
   const [filter, setFilter] = useState({
@@ -40,6 +58,7 @@ const Shopping: React.FC = () => {
     list: '',
     completed: false
   });
+  const [templateName, setTemplateName] = useState('');
 
   useEffect(() => {
     const savedItems = localStorage.getItem('shoppingItems');
@@ -66,6 +85,10 @@ const Shopping: React.FC = () => {
     localStorage.setItem('shoppingItems', JSON.stringify(items));
   }, [items]);
 
+  useEffect(() => {
+    localStorage.setItem('shoppingTemplates', JSON.stringify(templates));
+  }, [templates]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingItem) {
@@ -77,7 +100,7 @@ const Shopping: React.FC = () => {
     }
     setShowModal(false);
     setEditingItem(null);
-    setNewItem({ category: 'Продукти', quantity: 1, price: 0, list: LISTS[0] });
+    setNewItem({ category: 'Продукти', quantity: 1, prices: [{ store: '', price: 0 }], list: LISTS[0] });
   };
 
   const handleEdit = (item: ShoppingItem) => {
@@ -112,12 +135,57 @@ const Shopping: React.FC = () => {
   const getListTotal = (listId: string) => {
     return items
       .filter(item => item.list === listId && item.completed)
-      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      .reduce((sum, item) => sum + (item.prices[0].price * item.quantity), 0);
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<any>) => {
     const { name, value } = e.target;
     setNewItem(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Мапа для зберігання штрих-кодів і назв товарів (можна розширити або замінити на API)
+  const barcodeMap: Record<string, { name: string; category: string }> = {
+    '4820000000000': { name: 'Молоко', category: 'Продукти' },
+    '4820000000001': { name: 'Хліб', category: 'Продукти' },
+    // Додайте більше штрих-кодів за потреби
+  };
+
+  const handleBarcodeDetected = (barcode: string) => {
+    setShowScanner(false);
+    const found = barcodeMap[barcode];
+    if (found) {
+      setNewItem(prev => ({
+        ...prev,
+        name: found.name,
+        category: found.category,
+      }));
+      setShowModal(true);
+    } else {
+      alert('Товар з цим штрих-кодом не знайдено.');
+    }
+  };
+
+  const saveCurrentAsTemplate = () => {
+    const template: ShoppingTemplate = {
+      id: Date.now().toString(),
+      name: templateName || `Шаблон ${templates.length + 1}`,
+      items: items.map(({ id, completed, purchaseDate, ...rest }) => rest),
+    };
+    setTemplates([...templates, template]);
+    setShowTemplateModal(false);
+    setTemplateName('');
+  };
+
+  const applyTemplate = (template: ShoppingTemplate) => {
+    setItems([
+      ...items,
+      ...template.items.map(item => ({
+        ...item,
+        id: Date.now().toString() + Math.random(),
+        completed: false,
+        purchaseDate: undefined,
+      })),
+    ]);
   };
 
   return (
@@ -126,9 +194,17 @@ const Shopping: React.FC = () => {
         <Card.Header className="bg-primary text-white">
           <div className="d-flex justify-content-between align-items-center">
             <h2 className="mb-0">Покупки</h2>
-            <Button variant="light" onClick={() => setShowModal(true)}>
-              <FaIcons.FaPlus className="me-2" />Новий товар
-            </Button>
+            <div>
+              <Button variant="light" onClick={() => setShowModal(true)} className="me-2">
+                <FaIcons.FaPlus className="me-2" />Новий товар
+              </Button>
+              <Button variant="outline-light" onClick={() => setShowScanner(true)} className="me-2">
+                <FaIcons.FaBarcode className="me-2" />Сканувати штрих-код
+              </Button>
+              <Button variant="outline-light" onClick={() => setShowTemplateModal(true)}>
+                <FaIcons.FaSave className="me-2" />Зберегти як шаблон
+              </Button>
+            </div>
           </div>
         </Card.Header>
         <Card.Body>
@@ -221,48 +297,59 @@ const Shopping: React.FC = () => {
                 <p className="text-muted">Додайте новий товар або змініть фільтри</p>
               </div>
             ) : (
-              filteredItems.map(item => (
-                <ListGroup.Item
-                  key={item.id}
-                  className={`d-flex justify-content-between align-items-center ${item.completed ? 'bg-light' : ''}`}
-                >
-                  <div>
-                    <h5 className={`mb-1 ${item.completed ? 'text-muted text-decoration-line-through' : ''}`}>
-                      {item.name}
-                    </h5>
-                    <div className="d-flex gap-2">
-                      <Badge bg="secondary">{item.category}</Badge>
-                      <Badge bg="info">{item.list}</Badge>
-                      <span className="text-muted">
-                        {item.quantity} шт. × {item.price} грн = {item.quantity * item.price} грн
-                      </span>
+              filteredItems.map(item => {
+                const minPriceObj = (item.prices || []).reduce((min, p) => (p.price < min.price ? p : min), { store: '', price: Infinity });
+                return (
+                  <ListGroup.Item
+                    key={item.id}
+                    className={`d-flex justify-content-between align-items-center ${item.completed ? 'bg-light' : ''}`}
+                  >
+                    <div>
+                      <h5 className={`mb-1 ${item.completed ? 'text-muted text-decoration-line-through' : ''}`}>
+                        {item.name}
+                      </h5>
+                      <div className="d-flex gap-2 align-items-center">
+                        <Badge bg="secondary">{item.category}</Badge>
+                        <Badge bg="info">{item.list}</Badge>
+                        {minPriceObj.price !== Infinity && (
+                          <span className="text-success">
+                            {item.quantity} шт. × {minPriceObj.price} грн = {item.quantity * minPriceObj.price} грн
+                            <span className="ms-2 text-muted">({minPriceObj.store || 'Магазин не вказано'})</span>
+                          </span>
+                        )}
+                      </div>
+                      {item.prices && item.prices.length > 1 && (
+                        <div className="mt-1 small text-muted">
+                          Інші ціни: {item.prices.filter(p => p !== minPriceObj).map((p, i) => `${p.price} грн (${p.store || 'Магазин не вказано'})`).join(', ')}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="d-flex gap-2">
-                    <Button
-                      variant={item.completed ? "outline-success" : "success"}
-                      size="sm"
-                      onClick={() => handleComplete(item.id)}
-                    >
-                      {item.completed ? 'Відновити' : 'Куплено'}
-                    </Button>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={() => handleEdit(item)}
-                    >
-                      <FaIcons.FaEdit />
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <FaIcons.FaTrash />
-                    </Button>
-                  </div>
-                </ListGroup.Item>
-              ))
+                    <div className="d-flex gap-2">
+                      <Button
+                        variant={item.completed ? "outline-success" : "success"}
+                        size="sm"
+                        onClick={() => handleComplete(item.id)}
+                      >
+                        {item.completed ? 'Відновити' : 'Куплено'}
+                      </Button>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => handleEdit(item)}
+                      >
+                        <FaIcons.FaEdit />
+                      </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <FaIcons.FaTrash />
+                      </Button>
+                    </div>
+                  </ListGroup.Item>
+                );
+              })
             )}
           </ListGroup>
         </Card.Body>
@@ -271,7 +358,7 @@ const Shopping: React.FC = () => {
       <Modal show={showModal} onHide={() => {
         setShowModal(false);
         setEditingItem(null);
-        setNewItem({ category: 'Продукти', quantity: 1, price: 0, list: LISTS[0] });
+        setNewItem({ category: 'Продукти', quantity: 1, prices: [{ store: '', price: 0 }], list: LISTS[0] });
       }}>
         <Modal.Header closeButton>
           <Modal.Title>{editingItem ? 'Редагувати товар' : 'Новий товар'}</Modal.Title>
@@ -324,16 +411,61 @@ const Shopping: React.FC = () => {
               />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Ціна (грн)</Form.Label>
-              <Form.Control
-                type="number"
-                name="price"
-                min="0"
-                step="0.01"
-                value={newItem.price}
-                onChange={handleInputChange}
-                required
-              />
+              <Form.Label>Ціни в магазинах</Form.Label>
+              {(newItem.prices || [{ store: '', price: 0 }]).map((sp, idx) => (
+                <div key={idx} className="d-flex mb-2 align-items-center gap-2">
+                  <Form.Control
+                    type="text"
+                    placeholder="Магазин"
+                    value={sp.store}
+                    onChange={e => {
+                      const prices = [...(newItem.prices || [])];
+                      prices[idx] = { ...prices[idx], store: e.target.value };
+                      setNewItem(prev => ({ ...prev, prices }));
+                    }}
+                    style={{ maxWidth: 120 }}
+                  />
+                  <Form.Control
+                    type="number"
+                    placeholder="Ціна"
+                    min="0"
+                    step="0.01"
+                    value={sp.price}
+                    onChange={e => {
+                      const prices = [...(newItem.prices || [])];
+                      prices[idx] = { ...prices[idx], price: Number(e.target.value) };
+                      setNewItem(prev => ({ ...prev, prices }));
+                    }}
+                    style={{ maxWidth: 100 }}
+                  />
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => {
+                      const prices = [...(newItem.prices || [])];
+                      prices.splice(idx, 1);
+                      setNewItem(prev => ({ ...prev, prices }));
+                    }}
+                    disabled={(newItem.prices || []).length === 1}
+                  >
+                    -
+                  </Button>
+                  {idx === (newItem.prices?.length || 1) - 1 && (
+                    <Button
+                      variant="outline-success"
+                      size="sm"
+                      onClick={() => {
+                        setNewItem(prev => ({
+                          ...prev,
+                          prices: [...(prev.prices || []), { store: '', price: 0 }]
+                        }));
+                      }}
+                    >
+                      +
+                    </Button>
+                  )}
+                </div>
+              ))}
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -341,7 +473,7 @@ const Shopping: React.FC = () => {
           <Button variant="secondary" onClick={() => {
             setShowModal(false);
             setEditingItem(null);
-            setNewItem({ category: 'Продукти', quantity: 1, price: 0, list: LISTS[0] });
+            setNewItem({ category: 'Продукти', quantity: 1, prices: [{ store: '', price: 0 }], list: LISTS[0] });
           }}>
             Скасувати
           </Button>
@@ -377,8 +509,8 @@ const Shopping: React.FC = () => {
                     <td>{item.name}</td>
                     <td>{item.category}</td>
                     <td>{item.quantity}</td>
-                    <td>{item.price} грн</td>
-                    <td>{item.quantity * item.price} грн</td>
+                    <td>{item.prices[0]?.price} грн</td>
+                    <td>{item.quantity * item.prices[0]?.price} грн</td>
                   </tr>
                 ))}
             </tbody>
@@ -390,8 +522,61 @@ const Shopping: React.FC = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal show={showScanner} onHide={() => setShowScanner(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Сканування штрих-коду</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <BarcodeScanner onDetected={handleBarcodeDetected} />
+          <div className="text-muted mt-2">Наведіть камеру на штрих-код товару</div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowScanner(false)}>
+            Скасувати
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showTemplateModal} onHide={() => setShowTemplateModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Зберегти список як шаблон</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Назва шаблону</Form.Label>
+            <Form.Control
+              type="text"
+              value={templateName}
+              onChange={e => setTemplateName(e.target.value)}
+              placeholder="Введіть назву шаблону"
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowTemplateModal(false)}>
+            Скасувати
+          </Button>
+          <Button variant="primary" onClick={saveCurrentAsTemplate}>
+            Зберегти
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <div className="mb-3">
+        <Form.Label>Додати товари з шаблону:</Form.Label>
+        <Form.Select onChange={e => {
+          const t = templates.find(t => t.id === e.target.value);
+          if (t) applyTemplate(t);
+        }} defaultValue="">
+          <option value="">Оберіть шаблон</option>
+          {templates.map(t => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </Form.Select>
+      </div>
     </div>
   );
 };
 
-export default Shopping; 
+export default Shopping;

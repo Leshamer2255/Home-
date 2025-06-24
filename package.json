@@ -17,6 +17,7 @@
     "@fullcalendar/react": "^6.1.17",
     "@fullcalendar/timegrid": "^6.1.17",
     "@heroicons/react": "^2.2.0",
+    "@zxing/library": "^0.21.3",
     "bootstrap": "^5.3.6",
     "chart.js": "^4.4.9",
     "date-fns": "^4.1.0",

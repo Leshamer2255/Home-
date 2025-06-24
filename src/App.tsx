@@ -10,6 +10,7 @@ import { Finances } from './pages/Finances';
 import { Tasks } from './pages/Tasks';
 import { Notes } from './pages/Notes';
 import { Settings } from './pages/Settings';
+import Shopping from './pages/Shopping';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -48,6 +49,7 @@ function App() {
                 <Route path="/tasks" element={<PageTransition><Tasks /></PageTransition>} />
                 <Route path="/notes" element={<PageTransition><Notes /></PageTransition>} />
                 <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
+                <Route path="/shopping" element={<PageTransition><Shopping /></PageTransition>} />
               </Routes>
             </AnimatePresence>
           </div>
